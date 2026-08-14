@@ -1,0 +1,165 @@
+{
+  "iou_threshold": 0.5,
+  "low_overlap_threshold": 0.25,
+  "frames": 100,
+  "crowd_frames_in_reference": 0,
+  "crowd_boxes_excluded": 0,
+  "boxes_mine": 364,
+  "boxes_reference": 551,
+  "matched": 338,
+  "mismatching_label": 21,
+  "missing_annotation": 197,
+  "extra_annotation": 10,
+  "low_overlap": 16,
+  "error_rate": 0.41379310344827586,
+  "mean_iou_matched": 0.866573515845347,
+  "mean_iou_same_class": 0.8644841062447727,
+  "cohens_kappa": 0.9143550080239391,
+  "per_class": {
+    "person": {
+      "matched": 145,
+      "extra": 3,
+      "low_overlap": 7,
+      "missing": 92
+    },
+    "car": {
+      "matched": 78,
+      "extra_as_other": 18,
+      "extra": 4,
+      "missing": 54,
+      "low_overlap": 2
+    },
+    "truck": {
+      "missing_as_other": 20,
+      "extra_as_other": 1,
+      "missing": 12,
+      "matched": 10
+    },
+    "bus": {
+      "missing_as_other": 1,
+      "matched": 32,
+      "missing": 9,
+      "extra_as_other": 2,
+      "low_overlap": 1,
+      "extra": 1
+    },
+    "bicycle": {
+      "missing": 16,
+      "matched": 21,
+      "low_overlap": 5,
+      "extra": 2
+    },
+    "motorcycle": {
+      "matched": 31,
+      "missing": 14,
+      "low_overlap": 1
+    }
+  },
+  "per_class_mean_iou": {
+    "person": 0.8410626752052031,
+    "car": 0.8769719669341192,
+    "truck": 0.8859395977734444,
+    "bus": 0.9170485565432537,
+    "bicycle": 0.8681405905585486,
+    "motorcycle": 0.8862001396532687
+  },
+  "confusion_reference_to_mine": {
+    "person": {
+      "person": 145
+    },
+    "car": {
+      "car": 78
+    },
+    "truck": {
+      "car": 18,
+      "truck": 10,
+      "bus": 2
+    },
+    "bus": {
+      "truck": 1,
+      "bus": 32
+    },
+    "bicycle": {
+      "bicycle": 21
+    },
+    "motorcycle": {
+      "motorcycle": 31
+    }
+  },
+  "examples": {
+    "truck->car": [
+      "000000006723.jpg",
+      "000000007386.jpg",
+      "000000033221.jpg",
+      "000000055167.jpg",
+      "000000128051.jpg"
+    ],
+    "bus->truck": [
+      "000000006723.jpg"
+    ],
+    "missing:truck": [
+      "000000006723.jpg",
+      "000000097924.jpg",
+      "000000110784.jpg",
+      "000000123131.jpg",
+      "000000123131.jpg"
+    ],
+    "missing:bicycle": [
+      "000000007386.jpg",
+      "000000007386.jpg",
+      "000000070774.jpg",
+      "000000070774.jpg",
+      "000000070774.jpg"
+    ],
+    "extra:car": [
+      "000000022755.jpg",
+      "000000128051.jpg",
+      "000000418696.jpg",
+      "000000441586.jpg"
+    ],
+    "extra:person": [
+      "000000033221.jpg",
+      "000000292456.jpg",
+      "000000433204.jpg"
+    ],
+    "missing:car": [
+      "000000046872.jpg",
+      "000000046872.jpg",
+      "000000046872.jpg",
+      "000000057149.jpg",
+      "000000081394.jpg"
+    ],
+    "missing:person": [
+      "000000055167.jpg",
+      "000000055167.jpg",
+      "000000055167.jpg",
+      "000000055167.jpg",
+      "000000055167.jpg"
+    ],
+    "missing:motorcycle": [
+      "000000081394.jpg",
+      "000000081394.jpg",
+      "000000192699.jpg",
+      "000000213605.jpg",
+      "000000226662.jpg"
+    ],
+    "missing:bus": [
+      "000000086220.jpg",
+      "000000110784.jpg",
+      "000000161128.jpg",
+      "000000336628.jpg",
+      "000000447342.jpg"
+    ],
+    "truck->bus": [
+      "000000161128.jpg",
+      "000000447342.jpg"
+    ],
+    "extra:bicycle": [
+      "000000226903.jpg",
+      "000000546976.jpg"
+    ],
+    "extra:bus": [
+      "000000495054.jpg"
+    ]
+  }
+}
