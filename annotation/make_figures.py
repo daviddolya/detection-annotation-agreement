@@ -19,8 +19,9 @@ from PIL import Image, ImageDraw, ImageFont
 from agreement import match_frame
 from boxes import CLASSES, iou, load_coco
 
-REF_COLOR = (31, 119, 180)    # эталон COCO
-MINE_COLOR = (255, 127, 14)   # моя разметка
+REF_COLOR = (31, 119, 180)        # эталон COCO
+MINE_COLOR = (255, 127, 14)       # моя разметка
+HIGHLIGHT_COLOR = (214, 39, 40)   # разбираемый случай
 BAR_H = 34
 
 FONT_CANDIDATES = [
@@ -48,7 +49,8 @@ def _font(size: int):
     raise SystemExit("не нашёл шрифта с кириллицей — поставь ttf-dejavu")
 
 
-def draw_frame(image_path: Path, mine, ref, caption: str, out_path: Path) -> None:
+def draw_frame(image_path: Path, mine, ref, caption: str, out_path: Path,
+               highlight=()) -> None:
     img = Image.open(image_path).convert("RGB")
     canvas = Image.new("RGB", (img.width, img.height + BAR_H), (255, 255, 255))
     canvas.paste(img, (0, BAR_H))
@@ -78,8 +80,40 @@ def draw_frame(image_path: Path, mine, ref, caption: str, out_path: Path) -> Non
             draw.rectangle([x1, ty, x1 + tw + 6, ty + 15], fill=color)
             draw.text((x1 + 3, ty + 1), label, fill=(255, 255, 255), font=font)
 
+    # разбираемый случай обводится поверх остальных, чтобы взгляд шёл к нему
+    for box in highlight:
+        x1, y1, x2, y2 = box.xyxy
+        draw.rectangle([x1 - 2, y1 + BAR_H - 2, x2 + 2, y2 + BAR_H + 2],
+                       outline=HIGHLIGHT_COLOR, width=4)
+
     out_path.parent.mkdir(parents=True, exist_ok=True)
     canvas.save(out_path, quality=90)
+
+
+def review(stats: dict, args) -> int:
+    """Все кадры с случаями выбранного типа плюс чеклист для разбора глазами."""
+    selected = [(n, s) for n, s in sorted(stats.items()) if s[args.review]]
+    rows = []
+    for i, (name, s) in enumerate(selected, start=1):
+        cases = s[args.review]
+        boxes = [c[0] if isinstance(c, tuple) else c for c in cases]
+        draw_frame(args.frames / name, s["frame"].boxes, s["ref_boxes"],
+                   f"{args.review}: {len(cases)} шт, обведены красным",
+                   args.out / f"{i:02d}_{name}", highlight=boxes)
+        for box in boxes:
+            rows.append(f"- [ ] `{i:02d}_{name}` — {box.cls}, "
+                        f"{box.w:.0f}x{box.h:.0f} px — решил не размечать / не заметил")
+    checklist = args.out / "checklist.md"
+    checklist.write_text(
+        f"# Разбор: {args.review}\n\n"
+        f"Красным обведён случай, синим эталон, оранжевым своя разметка.\n"
+        f"Против каждого случая оставить одно из двух: **решил не размечать** "
+        f"(лечится правилом в инструкции) или **не заметил** (лечится техникой "
+        f"просмотра кадра).\n\n" + "\n".join(rows) + "\n",
+        encoding="utf-8")
+    print(f"кадров {len(selected)}, случаев {len(rows)} -> {args.out}")
+    print(f"чеклист: {checklist}")
+    return 0
 
 
 def main() -> int:
@@ -91,6 +125,10 @@ def main() -> int:
     p.add_argument("--out", type=Path, default=Path("reports/figures"))
     p.add_argument("--iou-threshold", type=float, default=0.5)
     p.add_argument("--low-overlap", type=float, default=0.25)
+    p.add_argument("--review", choices=["missing_large_solo", "missing_large",
+                                        "missing_small", "extra", "low"],
+                   help="вместо подборки — все кадры с случаями этого типа, "
+                        "разбираемый случай обведён красным")
     args = p.parse_args()
 
     keep = set(CLASSES)
@@ -118,6 +156,9 @@ def main() -> int:
             "low": low,
             "matched": [(m, r) for m, r, _ in pairs if m.cls == r.cls],
         }
+
+    if args.review:
+        return review(stats, args)
 
     cases = [
         ("01_mismatch_truck_car", "расхождение по классу: эталон truck, у меня car",
