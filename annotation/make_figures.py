@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Наложение своей разметки на эталонную — картинки для отчёта.
+"""My annotation drawn over the reference -- the figures for the report.
 
-Каждая картинка показывает один тип расхождения: эталон одним цветом,
-своя разметка другим. Кадры выбираются автоматически — тот, где случаев
-нужного типа больше всего.
+Every figure shows one kind of disagreement: the reference in one colour,
+mine in another. Frames are picked automatically -- the one holding the most
+cases of the kind in question.
 
     .venv/bin/python annotation/make_figures.py \
         --mine annotation/my_labels/coco/instances_default.json \
@@ -19,9 +19,9 @@ from PIL import Image, ImageDraw, ImageFont
 from agreement import match_frame
 from boxes import CLASSES, iou, load_coco
 
-REF_COLOR = (31, 119, 180)        # эталон COCO
-MINE_COLOR = (255, 127, 14)       # моя разметка
-HIGHLIGHT_COLOR = (214, 39, 40)   # разбираемый случай
+REF_COLOR = (31, 119, 180)        # the COCO reference
+MINE_COLOR = (255, 127, 14)       # mine
+HIGHLIGHT_COLOR = (214, 39, 40)   # the case under review
 BAR_H = 34
 
 FONT_CANDIDATES = [
@@ -34,19 +34,19 @@ FONT_CANDIDATES = [
 
 
 def _font(size: int):
-    """Подписи на картинках русские, поэтому шрифт нужен с кириллицей:
-    встроенный в Pillow bitmap-шрифт рисует вместо неё квадраты."""
+    """A TrueType font is needed: the bitmap font built into Pillow ignores
+    the size argument and draws captions too small to read."""
     for path in FONT_CANDIDATES:
         if Path(path).exists():
             return ImageFont.truetype(path, size)
     for path in sorted(Path("/usr/share/fonts").rglob("*.ttf")):
         try:
             font = ImageFont.truetype(str(path), size)
-            if font.getmask("Ы").getbbox():  # кириллица в шрифте есть
+            if font.getmask("Ag").getbbox():  # the font actually renders
                 return font
         except OSError:
             continue
-    raise SystemExit("не нашёл шрифта с кириллицей — поставь ttf-dejavu")
+    raise SystemExit("no TrueType font found -- install ttf-dejavu")
 
 
 def draw_frame(image_path: Path, mine, ref, caption: str, out_path: Path,
@@ -58,13 +58,14 @@ def draw_frame(image_path: Path, mine, ref, caption: str, out_path: Path,
     font = _font(14)
 
     draw.rectangle([8, 10, 24, 24], fill=REF_COLOR)
-    draw.text((30, 11), "эталон", fill=(20, 20, 20), font=font)
-    draw.rectangle([90, 10, 106, 24], fill=MINE_COLOR)
-    draw.text((112, 11), "моя разметка", fill=(20, 20, 20), font=font)
+    draw.text((30, 11), "reference", fill=(20, 20, 20), font=font)
+    draw.rectangle([100, 10, 116, 24], fill=MINE_COLOR)
+    draw.text((122, 11), "mine", fill=(20, 20, 20), font=font)
     draw.text((230, 11), caption, fill=(60, 60, 60), font=font)
 
-    # подписи эталона идут над рамкой, свои — под нижней гранью: когда оба
-    # бокса на одном объекте почти совпадают, иначе одна подпись закрывает другую
+    # reference labels go above the box and mine below its bottom edge: when
+    # both boxes sit on one object they nearly coincide, and one label would
+    # otherwise cover the other
     for boxes, color, above in ((ref, REF_COLOR, True), (mine, MINE_COLOR, False)):
         for box in boxes:
             x1, y1, x2, y2 = box.xyxy
@@ -80,7 +81,8 @@ def draw_frame(image_path: Path, mine, ref, caption: str, out_path: Path,
             draw.rectangle([x1, ty, x1 + tw + 6, ty + 15], fill=color)
             draw.text((x1 + 3, ty + 1), label, fill=(255, 255, 255), font=font)
 
-    # разбираемый случай обводится поверх остальных, чтобы взгляд шёл к нему
+    # the case under review is outlined on top of everything else, so the eye
+    # goes to it first
     for box in highlight:
         x1, y1, x2, y2 = box.xyxy
         draw.rectangle([x1 - 2, y1 + BAR_H - 2, x2 + 2, y2 + BAR_H + 2],
@@ -91,28 +93,29 @@ def draw_frame(image_path: Path, mine, ref, caption: str, out_path: Path,
 
 
 def review(stats: dict, args) -> int:
-    """Все кадры с случаями выбранного типа плюс чеклист для разбора глазами."""
+    """Every frame holding a case of the chosen kind, plus a checklist to work
+    through by eye."""
     selected = [(n, s) for n, s in sorted(stats.items()) if s[args.review]]
     rows = []
     for i, (name, s) in enumerate(selected, start=1):
         cases = s[args.review]
         boxes = [c[0] if isinstance(c, tuple) else c for c in cases]
         draw_frame(args.frames / name, s["frame"].boxes, s["ref_boxes"],
-                   f"{args.review}: {len(cases)} шт, обведены красным",
+                   f"{args.review}: {len(cases)}, outlined in red",
                    args.out / f"{i:02d}_{name}", highlight=boxes)
         for box in boxes:
-            rows.append(f"- [ ] `{i:02d}_{name}` — {box.cls}, "
-                        f"{box.w:.0f}x{box.h:.0f} px — решил не размечать / не заметил")
+            rows.append(f"- [ ] `{i:02d}_{name}` -- {box.cls}, "
+                        f"{box.w:.0f}x{box.h:.0f} px -- chose not to annotate / did not notice")
     checklist = args.out / "checklist.md"
     checklist.write_text(
-        f"# Разбор: {args.review}\n\n"
-        f"Красным обведён случай, синим эталон, оранжевым своя разметка.\n"
-        f"Против каждого случая оставить одно из двух: **решил не размечать** "
-        f"(лечится правилом в инструкции) или **не заметил** (лечится техникой "
-        f"просмотра кадра).\n\n" + "\n".join(rows) + "\n",
+        f"# Review: {args.review}\n\n"
+        f"The case is outlined in red, the reference in blue, mine in orange.\n"
+        f"Against every case leave one of two: **chose not to annotate** "
+        f"(cured by a rule in the guidelines) or **did not notice** (cured by "
+        f"how the frame is scanned).\n\n" + "\n".join(rows) + "\n",
         encoding="utf-8")
-    print(f"кадров {len(selected)}, случаев {len(rows)} -> {args.out}")
-    print(f"чеклист: {checklist}")
+    print(f"frames {len(selected)}, cases {len(rows)} -> {args.out}")
+    print(f"checklist: {checklist}")
     return 0
 
 
@@ -127,8 +130,8 @@ def main() -> int:
     p.add_argument("--low-overlap", type=float, default=0.25)
     p.add_argument("--review", choices=["missing_large_solo", "missing_large",
                                         "missing_small", "extra", "low"],
-                   help="вместо подборки — все кадры с случаями этого типа, "
-                        "разбираемый случай обведён красным")
+                   help="instead of the selection -- every frame holding a case "
+                        "of this kind, the case outlined in red")
     args = p.parse_args()
 
     keep = set(CLASSES)
@@ -145,8 +148,8 @@ def main() -> int:
             "ref_boxes": ref_boxes,
             "mismatch": [(m, r) for m, r, _ in pairs if m.cls != r.cls],
             "missing_large": [b for b in missing if min(b.w, b.h) >= 48],
-            # крупный пропуск без соседа того же класса: плотной группой
-            # его не объяснить, такой случай разбирается глазами
+            # a large miss with no neighbour of the same class: a dense group
+            # does not explain it, so the case is reviewed by eye
             "missing_large_solo": [
                 b for b in missing if min(b.w, b.h) >= 48
                 and max((iou(b, o) for o in ref_boxes if o is not b
@@ -161,22 +164,22 @@ def main() -> int:
         return review(stats, args)
 
     cases = [
-        ("01_mismatch_truck_car", "расхождение по классу: эталон truck, у меня car",
+        ("01_mismatch_truck_car", "class disagreement: reference truck, mine car",
          lambda s: sum(1 for m, r in s["mismatch"] if r.cls == "truck" and m.cls == "car")),
-        ("02_mismatch_any", "прочие расхождения по классу",
+        ("02_mismatch_any", "other class disagreements",
          lambda s: sum(1 for m, r in s["mismatch"] if not (r.cls == "truck" and m.cls == "car"))),
-        ("03_missing_large", "крупные пропуски: объект больше 48 px, но не размечен",
+        ("03_missing_large", "large misses: object over 48 px and not annotated",
          lambda s: len(s["missing_large"])),
         ("03b_missing_large_solo",
-         "крупный одиночный пропуск: плотной группой не объясняется",
+         "a large solitary miss: a dense group does not explain it",
          lambda s: len(s["missing_large_solo"])),
-        ("04_missing_small", "мелкие пропуски: объекты меньше 24 px",
+        ("04_missing_small", "small misses: objects under 24 px",
          lambda s: len(s["missing_small"])),
-        ("05_low_overlap", "граница уехала: IoU в зоне 0.25–0.5",
+        ("05_low_overlap", "the boundary drifted: IoU in the 0.25-0.5 band",
          lambda s: len(s["low"])),
-        ("06_extra", "лишние боксы: размечено сверх эталона",
+        ("06_extra", "extra boxes: annotated beyond the reference",
          lambda s: len(s["extra"])),
-        ("07_clean", "полное согласие: класс и границы совпали",
+        ("07_clean", "full agreement: class and boundaries both match",
          lambda s: len(s["matched"]) if not (s["mismatch"] or s["missing_large"]
                                              or s["extra"]) else 0),
     ]
@@ -187,16 +190,16 @@ def main() -> int:
         ranked = sorted(((score(s), n) for n, s in stats.items() if n not in used),
                         reverse=True)
         if not ranked or ranked[0][0] == 0:
-            print(f"{slug}: подходящих кадров нет, пропуск")
+            print(f"{slug}: no suitable frame, skipped")
             continue
         count, name = ranked[0]
         used.add(name)
         s = stats[name]
         draw_frame(args.frames / name, s["frame"].boxes, s["ref_boxes"],
                    f"{caption} ({count})", args.out / f"{slug}.jpg")
-        print(f"{slug}: {name}, случаев {count}")
+        print(f"{slug}: {name}, cases {count}")
         made += 1
-    print(f"готово: {made} картинок -> {args.out}")
+    print(f"done: {made} figures -> {args.out}")
     return 0
 
 

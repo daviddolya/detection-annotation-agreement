@@ -1,9 +1,9 @@
-"""Общие структуры для работы с ограничивающими рамками.
+"""Shared structures for working with bounding boxes.
 
-Внутреннее представление одно на все форматы: кадр знает свои размеры,
-бокс хранится в COCO-виде (x, y, w, h) в абсолютных пикселях. Перевод в VOC
-и YOLO делается на границе — при чтении и записи, а не по ходу вычислений.
-Так ошибка в системе координат локализуется в одном месте.
+One internal representation serves every format: a frame knows its own size and
+a box is held COCO-style (x, y, w, h) in absolute pixels. Conversion to VOC and
+YOLO happens at the boundary -- on read and on write, never mid-computation.
+That way a coordinate-system mistake stays in one place.
 """
 
 import json
@@ -40,7 +40,7 @@ class Frame:
 
 
 def iou(a: Box, b: Box) -> float:
-    """Intersection over Union двух боксов. 0.0, если не пересекаются."""
+    """Intersection over Union of two boxes. 0.0 when they do not overlap."""
     ax1, ay1, ax2, ay2 = a.xyxy
     bx1, by1, bx2, by2 = b.xyxy
     ix1, iy1 = max(ax1, bx1), max(ay1, by1)
@@ -55,10 +55,10 @@ def iou(a: Box, b: Box) -> float:
 
 def load_coco(path: str | Path, keep: set[str] | None = None,
               drop_crowd: bool = False) -> list[Frame]:
-    """Читает COCO JSON. keep — оставить только эти классы, None = все.
+    """Reads a COCO JSON. keep -- retain only these classes, None = all.
 
-    drop_crowd отбрасывает аннотации с iscrowd=1: это RLE-области толпы,
-    а не боксы, и сопоставлять их с ручной разметкой некорректно.
+    drop_crowd discards annotations with iscrowd=1: those are RLE crowd regions
+    rather than boxes, and matching them against hand annotation is not valid.
     """
     data = json.loads(Path(path).read_text(encoding="utf-8"))
     names = {c["id"]: c["name"] for c in data["categories"]}

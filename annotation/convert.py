@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""Конвертер аннотаций: COCO <-> YOLO <-> VOC.
+"""Annotation converter: COCO <-> YOLO <-> VOC.
 
-Три формата хранят одну и ту же рамку в трёх системах координат:
+The three formats hold the same box in three coordinate systems:
 
-    VOC   (xmin, ymin, xmax, ymax)   абсолютные пиксели
-    COCO  (x, y, w, h)               абсолютные пиксели, левый верхний угол
-    YOLO  (cx, cy, w, h)             доли размера кадра, центр рамки
+    VOC   (xmin, ymin, xmax, ymax)   absolute pixels
+    COCO  (x, y, w, h)               absolute pixels, top-left corner
+    YOLO  (cx, cy, w, h)             fractions of the frame size, box centre
 
-Ошибка перевода не роняет обучение, а молча портит датасет: боксы уезжают,
-loss падает, mAP остаётся около нуля. Поэтому у конвертера есть режим
---selftest: round-trip COCO -> YOLO -> COCO и COCO -> VOC -> COCO обязан
-воспроизводить координаты с точностью до округления формата.
+A conversion mistake does not crash training, it quietly corrupts the dataset:
+boxes drift, the loss falls, mAP stays near zero. Hence the --selftest mode: the
+round trips COCO -> YOLO -> COCO and COCO -> VOC -> COCO have to reproduce the
+coordinates to within the rounding of the format.
 
-Примеры:
+Examples:
     python3 annotation/convert.py --from coco --to yolo \
         --input annotation/my_labels/coco/instances_default.json --output /tmp/yolo
     python3 annotation/convert.py --selftest \
@@ -30,7 +30,7 @@ from boxes import CLASSES, Box, Frame, load_coco, save_coco
 
 def save_yolo(frames: list[Frame], out_dir: Path,
               classes: list[str] = CLASSES) -> None:
-    """Кадр -> <имя>.txt со строками `cls cx cy w h`, всё нормировано."""
+    """Frame -> <name>.txt with lines `cls cx cy w h`, everything normalised."""
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "obj.names").write_text("\n".join(classes) + "\n", encoding="utf-8")
     idx = {name: i for i, name in enumerate(classes)}
@@ -48,7 +48,7 @@ def save_yolo(frames: list[Frame], out_dir: Path,
 
 def load_yolo(in_dir: Path, sizes: dict[str, tuple[int, int]],
               classes: list[str] = CLASSES) -> list[Frame]:
-    """Читает каталог YOLO. sizes — размеры кадров: из .txt их не узнать."""
+    """Reads a YOLO directory. sizes -- frame sizes: the .txt files omit them."""
     names_file = in_dir / "obj.names"
     if names_file.exists():
         classes = [l.strip() for l in names_file.read_text().splitlines() if l.strip()]
@@ -73,8 +73,8 @@ def _match_size(stem: str, sizes: dict[str, tuple[int, int]]):
     for file_name, wh in sizes.items():
         if Path(file_name).stem == stem:
             return file_name, wh
-    raise KeyError(f"нет размеров кадра для {stem}: YOLO их не хранит, "
-                   f"передай исходный COCO через --sizes")
+    raise KeyError(f"no frame size for {stem}: YOLO does not store it, "
+                   f"pass the source COCO through --sizes")
 
 # ---------------------------------------------------------------- VOC
 
@@ -96,7 +96,7 @@ def save_voc(frames: list[Frame], out_dir: Path) -> None:
             xmin, ymin, xmax, ymax = box.xyxy
             for tag, value in zip(("xmin", "ymin", "xmax", "ymax"),
                                   (xmin, ymin, xmax, ymax)):
-                # VOC исторически целочисленный, дробное здесь и теряется
+                # VOC is historically integer, and the fraction is lost here
                 ET.SubElement(bnd, tag).text = "%.2f" % value
         name = Path(frame.file_name).with_suffix(".xml").name
         ET.ElementTree(root).write(out_dir / name, encoding="utf-8",
@@ -124,7 +124,7 @@ def load_voc(in_dir: Path) -> list[Frame]:
 
 
 def selftest(coco_path: Path, tmp: Path) -> int:
-    """COCO -> X -> COCO для X из {YOLO, VOC}. Возвращает код выхода."""
+    """COCO -> X -> COCO for X in {YOLO, VOC}. Returns the exit code."""
     src = load_coco(coco_path)
     sizes = {f.file_name: (f.width, f.height) for f in src}
     worst = {}
@@ -137,10 +137,10 @@ def selftest(coco_path: Path, tmp: Path) -> int:
 
     ok = True
     for fmt, (err, tol) in worst.items():
-        verdict = "ok" if err <= tol else "РАСХОЖДЕНИЕ"
+        verdict = "ok" if err <= tol else "MISMATCH"
         ok &= err <= tol
-        print(f"COCO -> {fmt} -> COCO: максимальная ошибка {err:.4f} px "
-              f"(допуск {tol} px) — {verdict}")
+        print(f"COCO -> {fmt} -> COCO: largest error {err:.4f} px "
+              f"(tolerance {tol} px) -- {verdict}")
     return 0 if ok else 1
 
 
@@ -151,11 +151,11 @@ def _max_error(src: list[Frame], back: list[Frame]) -> tuple[float, float]:
     for frame in src:
         other = by_name[frame.file_name]
         assert len(frame.boxes) == len(other.boxes), frame.file_name
-        # допуск считаем от размера кадра: YOLO хранит доли с 6 знаками,
-        # значит абсолютная ошибка не больше половины кванта нормировки
+        # the tolerance follows from the frame size: YOLO stores fractions to
+        # six decimals, so the absolute error is at most half a quantisation step
         tol = max(tol, max(frame.width, frame.height) * 1e-6)
         for a, b in zip(frame.boxes, other.boxes):
-            assert a.cls == b.cls, f"{frame.file_name}: класс изменился"
+            assert a.cls == b.cls, f"{frame.file_name}: the class changed"
             worst = max(worst, max(abs(u - v) for u, v in zip(a.xyxy, b.xyxy)))
     return worst, max(tol, 0.01)
 
@@ -168,9 +168,9 @@ def main() -> int:
     p.add_argument("--input", type=Path, required=True)
     p.add_argument("--output", type=Path)
     p.add_argument("--sizes", type=Path,
-                   help="COCO JSON с размерами кадров — обязателен для --from yolo")
+                   help="COCO JSON carrying the frame sizes -- required for --from yolo")
     p.add_argument("--selftest", action="store_true",
-                   help="round-trip через YOLO и VOC, сверка координат")
+                   help="round-trip through YOLO and VOC, checking coordinates")
     args = p.parse_args()
 
     if args.selftest:
@@ -178,7 +178,7 @@ def main() -> int:
         return selftest(args.input, tmp)
 
     if not args.src or not args.dst or not args.output:
-        p.error("нужны --from, --to и --output (или --selftest)")
+        p.error("--from, --to and --output are required (or --selftest)")
 
     if args.src == "coco":
         frames = load_coco(args.input)
@@ -186,7 +186,7 @@ def main() -> int:
         frames = load_voc(args.input)
     else:
         if not args.sizes:
-            p.error("--from yolo требует --sizes: размеров кадра в YOLO нет")
+            p.error("--from yolo needs --sizes: YOLO carries no frame size")
         sizes = {f.file_name: (f.width, f.height) for f in load_coco(args.sizes)}
         frames = load_yolo(args.input, sizes)
 
@@ -196,8 +196,8 @@ def main() -> int:
         save_yolo(frames, args.output)
     else:
         save_voc(frames, args.output)
-    print(f"{args.src} -> {args.dst}: {len(frames)} кадров, "
-          f"{sum(len(f.boxes) for f in frames)} боксов -> {args.output}")
+    print(f"{args.src} -> {args.dst}: {len(frames)} frames, "
+          f"{sum(len(f.boxes) for f in frames)} boxes -> {args.output}")
     return 0
 
 

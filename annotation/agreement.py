@@ -1,26 +1,26 @@
 #!/usr/bin/env python3
-"""Согласованность своей разметки с эталонной.
+"""Agreement between my annotation and the reference.
 
-Главный артефакт проекта. Отвечает на два разных вопроса, которые часто
-путают:
+The main artefact of the project. It answers two different questions that are
+often confused:
 
-    средний IoU по совпавшим боксам  — насколько точно ведутся границы;
-    коэффициент согласия (Cohen's kappa) — насколько совпадает выбор класса.
+    mean IoU over matched boxes    -- how precisely the boundaries are drawn;
+    agreement coefficient (Cohen's kappa) -- how far the class choice agrees.
 
-Порядок сопоставления:
+The matching order:
 
- 1. Боксы кадра сопоставляются жадно по убыванию IoU, порог 0.5,
-    БЕЗ учёта класса — иначе ошибка класса замаскируется под пропуск
-    и лишний бокс сразу, и kappa считать будет не на чем.
- 2. Сопоставленная пара с разными метками — `Mismatching label`.
- 3. Несопоставленные проверяются на «граница уехала»: если для бокса есть
-    встречный того же класса с IoU в [--low-overlap, 0.5), пара считается
-    `Low overlap` — предупреждением, а не парой ошибок.
- 4. Остальное: мой бокс без пары — `Extra annotation`, эталонный без пары —
+ 1. Boxes in a frame are matched greedily by descending IoU, threshold 0.5,
+    class-AGNOSTICALLY -- otherwise a class error immediately disguises itself
+    as a miss plus an extra box, and there is nothing left to compute kappa on.
+ 2. A matched pair carrying different labels is a `Mismatching label`.
+ 3. Unmatched boxes are then checked for "the boundary drifted": if a box has a
+    counterpart of the same class with IoU in [--low-overlap, 0.5), the pair
+    counts as `Low overlap` -- a warning rather than a pair of errors.
+ 4. The rest: a box of mine without a pair is an `Extra annotation`, a
     `Missing annotation`.
 
-Аннотации эталона с iscrowd=1 — RLE-области толпы, а не рамки; в
-сопоставление они не идут, число таких кадров попадает в отчёт.
+Reference annotations with iscrowd=1 are RLE crowd regions, not boxes; they do
+not enter the matching, and the number of such frames goes into the report.
 
     python3 annotation/agreement.py \
         --mine annotation/my_labels/coco/instances_default.json \
@@ -38,8 +38,7 @@ from boxes import CLASSES, Box, Frame, iou, load_coco
 
 def match_frame(mine: list[Box], ref: list[Box], iou_threshold: float,
                 low_overlap: float):
-    """Возвращает (пары, мои несопоставленные, эталонные несопоставленные,
-    пары low-overlap)."""
+    """Returns (pairs, my unmatched, reference unmatched, low-overlap pairs)."""
     candidates = sorted(
         ((iou(m, r), i, j) for i, m in enumerate(mine) for j, r in enumerate(ref)),
         key=lambda t: -t[0])
@@ -71,7 +70,7 @@ def match_frame(mine: list[Box], ref: list[Box], iou_threshold: float,
 
 
 def cohens_kappa(pairs: list[tuple[str, str]], classes: list[str]) -> float:
-    """Согласие по классам на сматченных парах, с поправкой на случайность."""
+    """Class agreement over matched pairs, corrected for chance."""
     n = len(pairs)
     if n == 0:
         return float("nan")
@@ -92,7 +91,7 @@ def main() -> int:
     p.add_argument("--out", type=Path, default=Path("reports/agreement_metrics.json"))
     p.add_argument("--iou-threshold", type=float, default=0.5)
     p.add_argument("--low-overlap", type=float, default=0.25,
-                   help="нижняя граница зоны «объект найден, граница уехала»")
+                   help="lower edge of the 'object found, boundary drifted' band")
     p.add_argument("--classes", nargs="*", default=CLASSES)
     args = p.parse_args()
 
@@ -102,8 +101,8 @@ def main() -> int:
 
     missing_ref = sorted(set(mine_frames) - set(ref_all))
     if missing_ref:
-        raise SystemExit(f"нет эталона для {len(missing_ref)} кадров, "
-                         f"например {missing_ref[:3]}")
+        raise SystemExit(f"no reference for {len(missing_ref)} frames, "
+                         f"for instance {missing_ref[:3]}")
 
     crowd_frames = [name for name in mine_frames
                     if any(b.iscrowd for b in ref_all[name].boxes)]
@@ -190,16 +189,16 @@ def main() -> int:
     args.out.write_text(json.dumps(result, ensure_ascii=False, indent=2),
                         encoding="utf-8")
 
-    print(f"кадров {result['frames']}, боксов у меня {result['boxes_mine']}, "
-          f"в эталоне {result['boxes_reference']}")
-    print(f"сопоставлено {result['matched']}, из них с другой меткой "
+    print(f"frames {result['frames']}, boxes mine {result['boxes_mine']}, "
+          f"reference {result['boxes_reference']}")
+    print(f"matched {result['matched']}, of them with a different label "
           f"{result['mismatching_label']}")
-    print(f"пропущено {result['missing_annotation']}, лишних "
+    print(f"missing {result['missing_annotation']}, extra "
           f"{result['extra_annotation']}, low overlap {result['low_overlap']}")
-    print(f"средний IoU {mean_iou:.3f}, kappa {kappa:.3f}")
-    print(f"кадров с iscrowd в эталоне: {len(crowd_frames)} "
-          f"({crowd_boxes} областей исключено)")
-    print(f"метрики -> {args.out}")
+    print(f"mean IoU {mean_iou:.3f}, kappa {kappa:.3f}")
+    print(f"frames with iscrowd in the reference: {len(crowd_frames)} "
+          f"({crowd_boxes} regions excluded)")
+    print(f"metrics -> {args.out}")
     return 0
 
 

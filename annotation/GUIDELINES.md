@@ -1,156 +1,163 @@
-# Инструкция по разметке: детекция, шесть классов
+# Annotation guidelines: detection, six classes
 
-Эталонная версия для проекта P2. Копируется в репозиторий как `annotation/GUIDELINES.md`
-и правится под свои решения — инструкция живая, каждое новое спорное правило дописывается
-в неё с датой и кадром-примером.
+The reference version for this project. It is a living document: every new disputed
+rule is appended to it with a date and an example frame.
 
-Версия 1.0 · 2026-08-13 · автор: разметчик проекта
+Version 1.0 · 2026-08-13 · author: the project annotator
 
 ---
 
-## 1. Задача
+## 1. The task
 
-Разметить прямоугольными боксами (axis-aligned bounding box) объекты шести классов
-на подмножестве изображений COCO val2017. Разметка используется для обучения детектора
-и для измерения согласованности с эталонной разметкой.
+Annotate objects of six classes with axis-aligned bounding boxes on a subset of the
+COCO val2017 images. The annotation is used both to train a detector and to measure
+agreement with the reference annotation.
 
-Инструмент: CVAT (равнозначная замена — Label Studio). Экспорт в COCO 1.0 и YOLO 1.1.
+Tool: CVAT (an equivalent substitute is Label Studio). Export to COCO 1.0 and YOLO 1.1.
 
-## 2. Классы
+## 2. Classes
 
-Список закрыт. Объекты, не входящие в него, не размечаются, даже если бросаются в глаза.
+The list is closed. Objects outside it are not annotated, however much they catch the eye.
 
-| Класс | Размечать | Не размечать (уходит в другой класс или вне списка) |
+| Class | Annotate | Do not annotate (goes to another class, or off the list) |
 |---|---|---|
-| `person` | человек любого возраста и позы, в том числе частично видимый; водитель и пассажир, различимые через стекло; велосипедист и мотоциклист — отдельным боксом от техники | статуи, манекены, люди на плакатах, экранах, картинах и в отражениях |
-| `bicycle` | велосипед любой конструкции: дорожный, горный, детский, тандем, грузовой, электровелосипед | велосипед на рекламном изображении; самокат (вне списка) |
-| `car` | легковой автомобиль: седан, хэтчбек, универсал, купе, кроссовер, такси, минивэн до восьми мест | пикап и фургон (→ `truck`); маршрутка на базе микроавтобуса (→ `bus`) |
-| `motorcycle` | мотоцикл, мопед, скутер, мотороллер, квадроцикл | электросамокат и моноколесо (вне списка); электровелосипед (→ `bicycle`) |
-| `bus` | пассажирский транспорт вместимостью примерно от девяти мест: городской, туристический, школьный, шаттл, двухэтажный, троллейбус | микроавтобус-минивэн до восьми мест (→ `car`) |
-| `truck` | техника с грузовым отсеком или платформой, конструктивно отделённой от кабины: пикап, цельнометаллический фургон, грузовик, фура, самосвал, эвакуатор, бетономешалка, мусоровоз | фургон-легковушка с окнами по всей длине и пассажирскими сиденьями (→ `car`) |
+| `person` | a human of any age and pose, including partially visible; a driver or passenger discernible through glass; a cyclist and a motorcyclist -- as a box separate from the vehicle | statues, mannequins, people on posters, screens, paintings and in reflections |
+| `bicycle` | a bicycle of any build: road, mountain, child's, tandem, cargo, e-bike | a bicycle on an advertising image; a kick scooter (off the list) |
+| `car` | a passenger car: saloon, hatchback, estate, coupé, crossover, taxi, minivan up to eight seats | a pickup and a panel van (→ `truck`); a minibus-based shuttle (→ `bus`) |
+| `motorcycle` | a motorcycle, moped, scooter, motor scooter, quad bike | an electric kick scooter and a unicycle (off the list); an e-bike (→ `bicycle`) |
+| `bus` | passenger transport seating roughly nine or more: city, coach, school, shuttle, double-decker, trolleybus | a minivan up to eight seats (→ `car`) |
+| `truck` | a vehicle with a cargo compartment or a platform structurally separate from the cab: pickup, panel van, lorry, articulated lorry, tipper, tow truck, concrete mixer, refuse collector | a van-bodied car glazed along its full length and fitted with passenger seats (→ `car`) |
 
-**Разделяющий признак `car` / `truck`** — не размер, а назначение кузова. Есть отдельный
-грузовой объём без боковых окон или открытая платформа — `truck`. Салон со сплошным
-остеклением и сиденьями — `car`. Пикап всегда `truck`, даже легковой.
+**The dividing feature between `car` and `truck`** is not size but what the body is for.
+A separate cargo volume without side windows, or an open platform -- `truck`. A cabin
+glazed throughout and fitted with seats -- `car`. A pickup is always `truck`, however
+car-like.
 
-**Разделяющий признак `car` / `bus`** — вместимость по посадочным местам, а не длина.
-Ориентир: больше трёх рядов сидений и отдельная пассажирская дверь — `bus`.
+**The dividing feature between `car` and `bus`** is seating capacity, not length.
+A guide: more than three rows of seats and a separate passenger door -- `bus`.
 
-**Разделяющий признак `bicycle` / `motorcycle`** — наличие двигателя как основного привода.
-Скутер и мопед — `motorcycle`, электровелосипед с педалями — `bicycle`.
+**The dividing feature between `bicycle` and `motorcycle`** is whether an engine is the
+primary drive. A scooter and a moped are `motorcycle`; an e-bike with pedals is `bicycle`.
 
-## 3. Правила ведения бокса
+## 3. Rules for drawing the box
 
-1. **Только видимая часть.** Бокс охватывает видимые пиксели объекта. Скрытое перекрытием
-   или обрезанное краем кадра не достраивается по воображаемому контуру.
-2. **Плотно.** Границы касаются крайних видимых пикселей объекта, зазор не больше 2 px.
-   Пустое поле внутри бокса — самая частая причина низкого IoU.
-3. **Один объект — один бокс.** Если объект разорван перекрытием на две видимые части
-   (человек за столбом), рисуется один бокс, охватывающий обе части.
-4. **Объект, обрезанный краем кадра**, размечается по видимой части, бокс упирается
-   в границу изображения.
-5. **Транспорт и человек — разные объекты.** Велосипедист даёт два бокса: `person`
-   и `bicycle`. Они перекрываются, это нормально.
-6. **Реальные объекты.** Изображения объектов внутри кадра — на плакатах, экранах,
-   витринах, в зеркалах и отражениях — не размечаются.
+1. **The visible part only.** The box covers the visible pixels of the object. What is
+   hidden by an occluder or cut off by the frame border is not completed along an
+   imagined contour.
+2. **Tight.** The boundaries touch the outermost visible pixels of the object, with a gap
+   of no more than 2 px. Empty space inside the box is the commonest cause of a low IoU.
+3. **One object, one box.** If an object is split into two visible parts by an occluder
+   (a person behind a pillar), a single box covering both parts is drawn.
+4. **An object cut off by the frame border** is annotated by its visible part, and the box
+   stops at the edge of the image.
+5. **A vehicle and a person are different objects.** A cyclist yields two boxes, `person`
+   and `bicycle`. They overlap, and that is normal.
+6. **Real objects only.** Images of objects inside the frame -- on posters, screens, shop
+   windows, in mirrors and reflections -- are not annotated.
 
-## 4. Пороговые решения
+## 4. Threshold decisions
 
-Эти четыре числа определяют больше половины расхождений между разметчиками, поэтому
-они зафиксированы явно.
+These four numbers account for more than half of the disagreements between annotators,
+which is why they are fixed explicitly.
 
-1. **Минимальный размер.** Объект, у которого меньшая сторона бокса меньше **20 px**,
-   не размечается. Он плохо различим при рабочем масштабе, а время на него уходит
-   непропорциональное. Порог намеренно выше, чем у публичных датасетов вроде COCO:
-   при сравнении с ними мелкие объекты дадут заметную долю пропусков, и это ожидаемое
-   расхождение, а не брак.
-2. **Минимальная видимость.** Объект размечается, если видно не меньше примерно четверти
-   и по видимому фрагменту он опознаётся как класс. Видно колесо и ничего больше — не
-   размечается.
-3. **Опознаваемость важнее видимости.** Крупный, но неразличимый по классу объект
-   (силуэт машины в темноте, где не понять `car` это или `truck`) не размечается,
-   а кадр заносится в журнал спорных случаев.
-4. **Плотная группа.** Если в группе больше десяти взаимно перекрытых объектов одного
-   класса и отдельные экземпляры не разделяются глазом, размечаются только те, у кого
-   различим контур целиком. Общий бокс на группу не рисуется никогда. Правило действует
-   для всех шести классов, а не только для людей: велосипеды в стойке и автобусы в ряд
-   дают ту же картину.
+1. **Minimum size.** An object whose shorter box side is under **20 px** is not annotated.
+   It is hard to make out at the working zoom level and takes disproportionate time. The
+   threshold is deliberately higher than in public datasets such as COCO: when compared
+   against them, small objects will account for a noticeable share of the misses, and that
+   is an expected disagreement rather than a defect.
+2. **Minimum visibility.** An object is annotated if roughly a quarter or more of it is
+   visible and the visible fragment identifies the class. A wheel and nothing else is not
+   annotated.
+3. **Identifiability outranks visibility.** A large object whose class cannot be made out
+   (the silhouette of a vehicle in the dark, where `car` and `truck` are indistinguishable)
+   is not annotated, and the frame goes into the disputed-case log.
+4. **A dense group.** If a group holds more than ten mutually overlapping objects of one
+   class and individual instances cannot be told apart by eye, only those whose contour is
+   discernible in full are annotated. A single box over the group is never drawn. The rule
+   holds for all six classes, not just people: bicycles in a rack and buses in a row give
+   the same picture.
 
-## 4.5. Что не размечается, даже если объект крупный
+## 4.5. What is not annotated even when the object is large
 
-Три случая, в которых размер и видимость ни при чём. Проверены на практике и дают
-предсказуемое расхождение с внешним эталоном, поэтому объявляются явно.
+Three cases in which size and visibility are beside the point. They have been checked in
+practice and produce a predictable disagreement with an external reference, so they are
+declared explicitly.
 
-- **Носитель сцены.** Объект занимает почти весь кадр и виден только фрагментами между
-  другими объектами — салон изнутри, кузов, на фоне которого снято остальное. Это
-  окружение, а не объект разметки. Пример: `000000336628.jpg`, вагон крупным планом.
-- **Фрагмент без опознания.** Видна часть объекта, по которой класс не определяется
-  уверенно, — даже если сама часть крупная. Пример: `000000226903.jpg`, человек за
-  стеклом витрины.
-- **Задний план.** Объект не участвует в сюжете кадра: далеко, размыт, стоит фоном.
-  Размечается то, что в фокусе.
+- **The carrier of the scene.** The object fills almost the whole frame and is visible only
+  in fragments between other objects -- a vehicle interior from within, a body against
+  which everything else is shot. That is the setting, not an object of annotation.
+  Example: `000000336628.jpg`, a carriage in close-up.
+- **A fragment without identification.** Part of an object is visible but does not
+  establish the class with confidence -- even when that part is itself large.
+  Example: `000000226903.jpg`, a person behind a shop window.
+- **The background.** The object takes no part in the subject of the frame: distant,
+  blurred, standing as backdrop. What is in focus is what gets annotated.
 
-Все три — источник систематического расхождения с COCO: эталон размечает такие объекты.
-При работе с внешним эталоном правила согласовываются до начала разметки.
+All three are a source of systematic disagreement with COCO: the reference does annotate
+such objects. When working against an external reference the rules are agreed before
+annotation begins.
 
-## 5. Порядок работы
+## 5. Working order
 
-1. Пройти кадр один раз слева направо, размечая крупные объекты, затем второй раз —
-   мелкие. Так реже теряются объекты на периферии.
-2. Сомневаешься в классе — ставить наиболее вероятный, а номер кадра записывать
-   в журнал спорных случаев. Пропускать объект из-за сомнения нельзя: пропуск и ошибка
-   класса — разные ошибки, и лечатся они по-разному.
-3. Сохраняться каждые 20–30 кадров.
-4. Не возвращаться к уже размеченным кадрам, чтобы «переделать красиво». Если правило
-   изменилось по ходу — дописать его в раздел 4 или 6 и применить ко всем кадрам разом
-   отдельным проходом, зафиксировав это в журнале.
+1. Go through the frame once left to right annotating the large objects, then a second
+   time for the small ones. Objects on the periphery are lost less often that way.
+2. When in doubt about the class, put down the most likely one and record the frame number
+   in the disputed-case log. Skipping an object out of doubt is not allowed: a miss and a
+   class error are different errors and are cured differently.
+3. Save every 20-30 frames.
+4. Do not go back to already annotated frames to "redo them properly". If a rule changed
+   along the way, write it into section 4 or 6 and apply it to every frame at once in a
+   separate pass, recording that in the log.
 
-## 6. Журнал спорных случаев
+## 6. Disputed-case log
 
-Ведётся по ходу разметки, не после. Пять–семь записей — норма для сотни кадров.
+Kept while annotating, not afterwards. Five to seven entries is normal for a hundred frames.
 
-| Кадр | Что смутило | Решение | Правило, которое из этого следует |
+| Frame | What was unclear | Decision | The rule that follows from it |
 |---|---|---|---|
-| `000000012345.jpg` | фургон с окнами по всей длине | `car` | остекление по всей длине → `car`, добавлено в раздел 2 |
+| `000000012345.jpg` | a van glazed along its full length | `car` | glazing along the full length → `car`, added to section 2 |
 
-## 7. Приёмка чужой разметки
+## 7. Accepting someone else's annotation
 
-Инструкция описывает не только как размечать, но и как принимать работу.
+The guidelines describe not only how to annotate but also how to accept the work.
 
-**Объём проверки.** У нового разметчика проверяется 100% первой партии, затем 20%,
-и при двух чистых партиях подряд — 10% случайной выборкой. Возврат к 100% — после любой
-партии, забракованной целиком.
+**Scope of the check.** For a new annotator 100% of the first batch is checked, then 20%,
+and after two clean batches in a row, 10% by random sample. A return to 100% follows any
+batch rejected in full.
 
-**Что считается ошибкой** (терминология CVAT, чтобы совпадать с его отчётом о сравнении):
+**What counts as an error** (CVAT terminology, so that it lines up with its comparison
+report):
 
-- `Missing annotation` — объект класса из списка не размечен;
-- `Extra annotation` — размечено то, чего в списке нет, или объект-дубль;
-- `Mismatching label` — объект размечен неверным классом;
-- `Low overlap` — бокс есть и класс верный, но границы ведены неплотно: IoU попадает
-  в зону между 0.25 и порогом сопоставления 0.5. Это предупреждение, а не ошибка:
-  три `Low overlap` на партию допустимы.
+- `Missing annotation` -- an object of a listed class is not annotated;
+- `Extra annotation` -- something not on the list is annotated, or an object is duplicated;
+- `Mismatching label` -- an object is annotated with the wrong class;
+- `Low overlap` -- the box is there and the class is right, but the boundaries are drawn
+  loosely: the IoU lands between 0.25 and the matching threshold of 0.5. This is a warning,
+  not an error: three `Low overlap` cases per batch are acceptable.
 
-**Порог приёмки.** Партия принимается, если на проверенной выборке доля ошибок первых трёх
-типов не превышает 5%, средний IoU по сматченным боксам не ниже 0.75, а коэффициент согласия
-по классам (Cohen's kappa) не ниже 0.6. Иначе партия возвращается целиком — выборочная
-правка проверяющим маскирует систематическую ошибку разметчика вместо того, чтобы её лечить.
+**Acceptance threshold.** A batch is accepted if, over the checked sample, the share of
+errors of the first three kinds does not exceed 5%, the mean IoU over matched boxes is no
+lower than 0.75, and the class agreement coefficient (Cohen's kappa) is no lower than 0.6.
+Otherwise the batch goes back in full -- selective fixing by the reviewer masks the
+annotator's systematic error instead of curing it.
 
-**Расхождение с разметчиком.** Спор решается не голосованием и не авторитетом: если правило
-в инструкции есть — прав тот, кто ему следовал; если правила нет — разметчик прав по
-определению, а правило дописывается в инструкцию с датой, кадром-примером и уведомлением
-всей команды. Задним числом уже сданная работа по новому правилу не бракуется.
+**A disagreement with the annotator.** The dispute is settled neither by vote nor by
+seniority: if the rule is in the guidelines, whoever followed it is right; if there is no
+rule, the annotator is right by definition, and the rule is written into the guidelines
+with a date, an example frame and a notice to the whole team. Work already handed in is
+never rejected retroactively under a new rule.
 
-**Обратная связь.** Разметчику возвращается не список кадров, а формулировка систематической
-ошибки: «фургоны уходят в `car`, по инструкции они `truck`, см. раздел 2». Список кадров
-без обобщения ничего не меняет в его работе.
+**Feedback.** What goes back to the annotator is not a list of frames but a statement of
+the systematic error: "vans are going to `car`, the guidelines make them `truck`, see
+section 2". A list of frames without the generalisation changes nothing in their work.
 
-## 8. Изменения
+## 8. Changes
 
-| Дата | Что изменилось | Кадр-пример |
+| Date | What changed | Example frame |
 |---|---|---|
-| 2026-08-13 | первая версия | — |
-| 2026-08-14 | раздел 4.5 (при добавлении — 4.1): носитель сцены, фрагмент без опознания, задний план — по разбору расхождений с COCO | `000000336628.jpg`, `000000226903.jpg` |
-| 2026-08-14 | правило плотной группы распространено со `person` на все шесть классов | `000000185157.jpg` |
-| 2026-08-14 | `Low overlap` переопределён как зона 0.25–0.5, прежняя формулировка противоречила порогу сопоставления | — |
-| 2026-08-14 | порог минимального размера поднят с 5 до 20 px — заявленное значение не соответствовало практике. По правилу приёмки (раздел 7) к уже сданной партии задним числом не применяется: в ней 65 боксов меньше 20 px, и они остаются | — |
-| 2026-08-18 | пункты раздела 4 пронумерованы (4.1–4.4), прежний раздел 4.1 стал 4.5. Изменение техническое: содержание правил не менялось. Потребовалось для приёмки — решение арбитража должно ссылаться на конкретный пункт, а ссылаться было не на что | — |
+| 2026-08-13 | first version | -- |
+| 2026-08-14 | section 4.5 (4.1 when added): carrier of the scene, fragment without identification, background -- from the analysis of disagreements with COCO | `000000336628.jpg`, `000000226903.jpg` |
+| 2026-08-14 | the dense-group rule extended from `person` to all six classes | `000000185157.jpg` |
+| 2026-08-14 | `Low overlap` redefined as the 0.25-0.5 band; the previous wording contradicted the matching threshold | -- |
+| 2026-08-14 | the minimum-size threshold raised from 5 to 20 px -- the declared value did not match practice. Under the acceptance rule (section 7) it is not applied retroactively to the batch already handed in: it holds 65 boxes under 20 px, and they stay | -- |
+| 2026-08-18 | the items of section 4 numbered (4.1-4.4), the former section 4.1 became 4.5. A technical change: the content of the rules did not move. It was needed for acceptance -- an arbitration decision has to cite a specific item, and there was nothing to cite | -- |
