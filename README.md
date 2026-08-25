@@ -82,7 +82,8 @@ by agreeing the convention before the work starts, never by re-annotating afterw
 
 ## The worst frames
 
-Blue is the COCO reference, orange is mine. Frames are picked automatically: for each kind
+Every picture carries its own legend: a blue swatch for the reference, an orange one for mine, the numbers of the case beside them and the frame name underneath.
+Frames are picked automatically: for each kind
 of disagreement, the one holding the most cases of it.
 
 ### The boundary drifted

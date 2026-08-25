@@ -14,54 +14,21 @@ cases of the kind in question.
 import argparse
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
 from agreement import match_frame
 from boxes import CLASSES, iou, load_coco
+from chrome import MINE_COLOR, REF_COLOR, load_font, with_chrome
 
-REF_COLOR = (31, 119, 180)        # the COCO reference
-MINE_COLOR = (255, 127, 14)       # mine
 HIGHLIGHT_COLOR = (214, 39, 40)   # the case under review
-BAR_H = 34
-
-FONT_CANDIDATES = [
-    "/usr/share/fonts/TTF/DejaVuSans.ttf",
-    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-    "/usr/share/fonts/dejavu/DejaVuSans.ttf",
-    "/usr/share/fonts/noto/NotoSans-Regular.ttf",
-    "/usr/share/fonts/liberation/LiberationSans-Regular.ttf",
-]
-
-
-def _font(size: int):
-    """A TrueType font is needed: the bitmap font built into Pillow ignores
-    the size argument and draws captions too small to read."""
-    for path in FONT_CANDIDATES:
-        if Path(path).exists():
-            return ImageFont.truetype(path, size)
-    for path in sorted(Path("/usr/share/fonts").rglob("*.ttf")):
-        try:
-            font = ImageFont.truetype(str(path), size)
-            if font.getmask("Ag").getbbox():  # the font actually renders
-                return font
-        except OSError:
-            continue
-    raise SystemExit("no TrueType font found -- install ttf-dejavu")
 
 
 def draw_frame(image_path: Path, mine, ref, caption: str, out_path: Path,
                highlight=()) -> None:
     img = Image.open(image_path).convert("RGB")
-    canvas = Image.new("RGB", (img.width, img.height + BAR_H), (255, 255, 255))
-    canvas.paste(img, (0, BAR_H))
-    draw = ImageDraw.Draw(canvas)
-    font = _font(14)
-
-    draw.rectangle([8, 10, 24, 24], fill=REF_COLOR)
-    draw.text((30, 11), "reference", fill=(20, 20, 20), font=font)
-    draw.rectangle([100, 10, 116, 24], fill=MINE_COLOR)
-    draw.text((122, 11), "mine", fill=(20, 20, 20), font=font)
-    draw.text((230, 11), caption, fill=(60, 60, 60), font=font)
+    font = load_font(14)
+    canvas, draw, BAR_H, _ = with_chrome(img, facts=caption,
+                                         footer=image_path.name, font=font)
 
     # reference labels go above the box and mine below its bottom edge: when
     # both boxes sit on one object they nearly coincide, and one label would
